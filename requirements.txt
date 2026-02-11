@@ -1,3 +1,4 @@
+mlflow
 plotly
 streamlit
 pandas
