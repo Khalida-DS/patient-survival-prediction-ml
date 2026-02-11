@@ -31,39 +31,62 @@ A Streamlit-based UI that allows users to input patient characteristics and rece
 * **Reproducible ML Pipeline**
 A modular training and inference workflow with saved model artifacts to ensure consistent, production-style deployment.
 
-##  Machine Learning Approach
 
-Model: Gradient Boosting Classifier
 
-Target: One-year survival (Survived_1_year)
+## 🧠 Machine Learning Approach
+### Model
 
-PyCaret AutoML was used to benchmark multiple classification models and validate the manually tuned Gradient Boosting model.
+* **Algorithm:** Gradient Boosting Classifier
 
-#### Features:
+* **Task:** Binary classification
 
-Demographics (Age, BMI)
+* **Target Variable:** Survived_1_year
 
-Lifestyle factors (Smoking status)
+### AutoML & Validation
 
-Clinical history (Previous conditions, mental condition)
+* **PyCaret AutoML** was used to benchmark multiple classification models.
 
-Treatment type
+* Gradient Boosting was selected based on performance, stability, and interpretability.
 
-#### Performance: ~83% accuracy after hyperparameter tuning
+* Manual hyperparameter tuning was applied to improve generalization.
 
-##  Tech Stack
+### Features
 
-Python
+* **Demographics:** Age, BMI
 
-Pandas / NumPy
+* **Lifestyle Factors:** Smoking status
 
-Scikit-learn
+* **Clinical History:** Previous conditions, mental condition
 
-Streamlit
+* **Treatment Information:** Treatment type
+  
+## Performance
 
-Plotly
+**Accuracy:** ~83% after tuning
 
-Joblib
+* Additional evaluation metrics include:
+
+* ROC Curve & AUC
+
+* Confusion Matrix
+
+* Feature Importance rankings
+
+⚠️ Note: Metrics are reported for demonstration purposes and are not intended for clinical use.
+
+## 🛠 Tech Stack
+
+* **Programming Language:** Python
+
+* **Data Processing:** Pandas, NumPy
+
+* **Machine Learning:** Scikit-learn, PyCaret
+
+* **Web Application:** Streamlit
+
+* **Visualization:** Plotly
+
+* **Model Persistence:** Joblib
 
 ##  Project Structure
 
@@ -88,9 +111,12 @@ patient-survival-prediction-app/
 
 
 
-##  How to Run Locally
-#### 1. Install dependencies
+##  ▶️ How to Run Locally
+#### 1️⃣ Install Dependencies
+
+```
 pip install -r requirements.txt
+```
 
 #### 2. Train the model
 python train_model.py
