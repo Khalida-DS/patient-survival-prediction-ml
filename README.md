@@ -141,7 +141,7 @@ streamlit run app/app.py
 
      * ROC curve
 
-     *Confusion matrix
+     * Confusion matrix
 
 * Feature importance analysis for interpretability
 
@@ -166,11 +166,37 @@ Top features influencing the survival prediction using Gradient Boosting.
 ![Feature Importance](screenshots/feature_importance.png)
 
 
-## 📌 Notes
+## 📌 Notes & Limitations
+
+* This project is intended for educational and analytical demonstration purposes only.
+
+* It is not a medical device and should not be used for real-world clinical decision-making.
+
+* Future improvements could include:
+
+     * Survival analysis models (Cox, Kaplan–Meier)
+
+     * Time-to-event prediction
+
+     * Model explainability with SHAP
+
+     * Role-based dashboards for clinicians and executives
 
 The model and feature schema are persisted to ensure training–inference consistency
 
+## ⭐ Why This Project Matters
 
+This system demonstrates:
+
+   * End-to-end ML pipeline design
+
+   * Model selection and validation
+
+   * Deployment-ready inference workflows
+
+   * Practical application of ML in healthcare analytics
+
+It bridges the gap between data science experimentation and real-world decision support systems.
 
 ## 👤 Author
 Khalida Khaldi
