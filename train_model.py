@@ -9,6 +9,8 @@
 import os
 import pandas as pd
 import joblib
+import mlflow
+import mlflow.sklearn
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.metrics import (
