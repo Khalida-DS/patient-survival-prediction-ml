@@ -117,24 +117,33 @@ patient-survival-prediction-app/
 ```
 pip install -r requirements.txt
 ```
-
-#### 2. Train the model
+#### 2️⃣ Train the Model
+```
 python train_model.py
+```
+### 3️⃣ Launch the Application
 
-#### 3. Run the app
+```
 streamlit run app/app.py
+```
 
-##  Application Features
+## 📊 Application Features
 
-Interactive patient data input
+* Interactive patient data input form
 
-Real-time survival prediction
+* Real-time survival probability prediction
 
-Probability-based risk scoring
+* Probability-based risk scoring
 
-Exploratory visualizations
+* Exploratory data visualizations
 
-Model performance evaluation (ROC, confusion matrix)
+* Model performance evaluation:
+
+     * ROC curve
+
+     *Confusion matrix
+
+* Feature importance analysis for interpretability
 
 ## 📊 Dashboard Screenshots
 ### 🔹 Application Interface
