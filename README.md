@@ -1,23 +1,35 @@
 
 # Patient Survival Decision Support System
 
-A machine learning–powered decision support application that predicts one-year patient survival probability based on demographic, clinical, and treatment-related factors.
-The system is designed to support healthcare analytics use cases and demonstrate a production-ready ML workflow, from training to deployment.
+A machine learning–powered clinical decision support application that predicts one-year patient survival probability using demographic, clinical, lifestyle, and treatment-related features.
+The system demonstrates a production-ready ML workflow, from model training and validation to deployment via an interactive web application.
 
 ##  Problem Statement
 
-Healthcare providers often struggle to identify the factors that most strongly influence patient survival after treatment.
-This project addresses that challenge by leveraging historical clinical data and machine learning to estimate survival likelihood and support data-driven decision-making.
+Healthcare providers often lack clear, data-driven insights into which factors most strongly influence patient survival following treatment. This makes it difficult to:
+
+*  Identify high-risk patients early
+
+* Compare treatment effectiveness across cohorts
+
+* Support evidence-based clinical decision-making
+
+This project addresses that challenge by leveraging historical clinical data and machine learning to estimate survival likelihood and surface key risk drivers.
 
 ##  Solution Overview
 
-The solution consists of:
+💡 Solution Overview
 
-A Gradient Boosting classification model trained on patient data
+The solution consists of three core components:
 
-A Streamlit web application for interactive prediction and visualization
+* **Machine Learning Model**
+A Gradient Boosting classifier trained to predict one-year survival probability.
 
-A reproducible ML pipeline with saved model artifacts
+* **Interactive Web Application**
+A Streamlit-based UI that allows users to input patient characteristics and receive real-time survival predictions with risk scores and visual explanations.
+
+* **Reproducible ML Pipeline**
+A modular training and inference workflow with saved model artifacts to ensure consistent, production-style deployment.
 
 ##  Machine Learning Approach
 
