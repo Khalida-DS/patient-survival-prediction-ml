@@ -198,10 +198,5 @@ This system demonstrates:
 
 It bridges the gap between data science experimentation and real-world decision support systems.
 
-## 👤 Author
-Khalida Khaldi
 
-M.S. Data Science
-
-Focus: Machine Learning, Analytics, Deployment
 
