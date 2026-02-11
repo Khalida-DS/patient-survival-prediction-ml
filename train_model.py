@@ -1,10 +1,8 @@
 # train_model.py
 # --------------------------------------------------
 # Patient Survival Prediction - Training Script
-# Refactored directly from original Jupyter Notebook
+# Refactored from Jupyter Notebook with MLflow integration
 # --------------------------------------------------
-
-
 
 import os
 import pandas as pd
@@ -15,6 +13,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.metrics import (
     accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
     classification_report,
     confusion_matrix,
     roc_curve,
@@ -36,7 +37,6 @@ os.makedirs(MODEL_DIR, exist_ok=True)
 # --------------------------------------------------
 
 df = pd.read_csv(DATA_PATH)
-
 print("✅ Data loaded successfully")
 print(f"Dataset shape: {df.shape}")
 
@@ -94,7 +94,6 @@ X = df_encoded.drop(columns=['Survived_1_year'])
 y = df_encoded['Survived_1_year']
 
 feature_names = X.columns.tolist()
-
 print("Total features:", len(feature_names))
 
 # --------------------------------------------------
@@ -106,47 +105,74 @@ X_train, X_test, y_train, y_test = train_test_split(
 )
 
 # --------------------------------------------------
-# 8. Model Training
+# 8. MLflow Experiment
 # --------------------------------------------------
 
-model = GradientBoostingClassifier(
-    max_depth=4,
-    n_estimators=150,
-    learning_rate=0.1,
-    random_state=45
-)
+mlflow.set_experiment("patient-survival-prediction")
 
-model.fit(X_train, y_train)
+with mlflow.start_run():
 
-print("✅ Model training completed")
+    # 8.1 Model Training
+    model = GradientBoostingClassifier(
+        max_depth=4,
+        n_estimators=150,
+        learning_rate=0.1,
+        random_state=45
+    )
+    model.fit(X_train, y_train)
+    print("✅ Model training completed")
+
+    # 8.2 Predictions
+    y_pred = model.predict(X_test)
+    y_prob = model.predict_proba(X_test)[:, 1]
+
+    # 8.3 Metrics
+    accuracy = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred)
+    recall = recall_score(y_test, y_pred)
+    f1 = f1_score(y_test, y_pred)
+    fpr, tpr, _ = roc_curve(y_test, y_prob)
+    roc_auc = auc(fpr, tpr)
+
+    print("\nModel Performance")
+    print("Accuracy:", round(accuracy, 4))
+    print("Precision:", round(precision, 4))
+    print("Recall:", round(recall, 4))
+    print("F1-score:", round(f1, 4))
+    print("ROC AUC:", round(roc_auc, 4))
+    print("\nClassification Report:\n", classification_report(y_test, y_pred))
+    print("\nConfusion Matrix:\n", confusion_matrix(y_test, y_pred))
+
+    # 8.4 Log Parameters
+    mlflow.log_params({
+        "model": "GradientBoosting",
+        "max_depth": model.max_depth,
+        "n_estimators": model.n_estimators,
+        "learning_rate": model.learning_rate
+    })
+
+    # 8.5 Log Metrics
+    mlflow.log_metrics({
+        "accuracy": accuracy,
+        "precision": precision,
+        "recall": recall,
+        "f1_score": f1,
+        "roc_auc": roc_auc
+    })
+
+    # 8.6 Log Model
+    mlflow.sklearn.log_model(model, "model")
+
+    # 8.7 Save and Log Feature Names
+    feature_path = os.path.join(MODEL_DIR, "feature_names.pkl")
+    joblib.dump(feature_names, feature_path)
+    mlflow.log_artifact(feature_path)
+
+    print("✅ MLflow logging completed")
 
 # --------------------------------------------------
-# 9. Evaluation
-# --------------------------------------------------
-
-y_pred = model.predict(X_test)
-accuracy = accuracy_score(y_test, y_pred)
-
-print("\nModel Performance")
-print("Accuracy:", round(accuracy, 4))
-print("\nClassification Report:\n")
-print(classification_report(y_test, y_pred))
-
-cm = confusion_matrix(y_test, y_pred)
-print("\nConfusion Matrix:")
-print(cm)
-
-y_prob = model.predict_proba(X_test)[:, 1]
-fpr, tpr, _ = roc_curve(y_test, y_prob)
-roc_auc = auc(fpr, tpr)
-
-print("\nROC AUC Score:", round(roc_auc, 4))
-
-# --------------------------------------------------
-# 10. Save Artifacts
+# 9. Save Local Artifacts
 # --------------------------------------------------
 
 joblib.dump(model, os.path.join(MODEL_DIR, "gradient_boosting.pkl"))
-joblib.dump(feature_names, os.path.join(MODEL_DIR, "feature_names.pkl"))
-
-print("\n💾 Model and feature schema saved successfully")
+print("\n💾 Model and feature schema saved locally successfully")
