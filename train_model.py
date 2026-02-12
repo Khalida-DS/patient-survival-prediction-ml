@@ -116,7 +116,7 @@ with mlflow.start_run():
     model = GradientBoostingClassifier(
         max_depth=4,
         n_estimators=150,
-        learning_rate=0.1,
+        learning_rate=0.2,
         random_state=45
     )
     model.fit(X_train, y_train)
