@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+models/
+mlruns/
+.env
+.DS_Store

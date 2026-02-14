@@ -1,0 +1,23 @@
+artifact_path: /Users/khaldikhakida/patient-survival-prediction-app/mlruns/1/models/m-8f1553dc69a44fd58efe85a699e9270b/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.12.4
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.4.2
+    skops_trusted_types: null
+mlflow_version: 3.9.0
+model_id: m-8f1553dc69a44fd58efe85a699e9270b
+model_size_bytes: 632869
+model_uuid: m-8f1553dc69a44fd58efe85a699e9270b
+prompts: null
+run_id: 2c210c2b5d5d4810b8bc797d9063372d
+utc_time_created: '2026-02-13 04:30:09.921252'
