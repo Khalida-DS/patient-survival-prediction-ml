@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.log
+
+# Environments
+.env
+.venv/
+env/
+venv/
+
+# MLflow
+mlruns/
+mlflow.db
+mlflow_tracking/
+
+# Models
+models/
+artifacts/
+
+# Data
+data/
+
+# OS
+.DS_Store
