@@ -1,0 +1,44 @@
+data:
+  path: data/Survival.csv
+  target_column: Survived_1_year
+  test_size: 0.2
+  random_state: 42
+
+model:
+  random_state: 42
+  cv_folds: 5
+  scoring: roc_auc
+  calibration_method: sigmoid
+  artifacts_dir: models/
+
+  tuning:
+    n_iter: 50
+    param_distributions:
+      n_estimators: [100, 200, 300, 500]
+      max_depth: [3, 4, 5, 6]
+      learning_rate: [0.01, 0.05, 0.1, 0.2]
+      subsample: [0.7, 0.8, 0.9, 1.0]
+      min_samples_leaf: [5, 10, 20, 30]
+
+evaluation:
+  output_dir: reports/evaluation/
+  calibration_bins: 10
+
+explainability:
+  output_dir: reports/shap/
+  max_display: 15
+  background_samples: 100
+
+monitoring:
+  output_dir: reports/drift/
+  psi_threshold: 0.2
+  reference_data: data/Survival.csv
+
+mlflow:
+  tracking_uri: mlruns/
+  experiment_name: patient-survival-prediction
+
+app:
+  risk_thresholds:
+    high_risk: 0.40
+    moderate_risk: 0.65

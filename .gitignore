@@ -1,28 +1,13 @@
-# Python
 __pycache__/
-*.pyc
-*.log
-
-# Environments
+*.py[cod]
+*.egg-info/
 .env
-.venv/
-env/
-venv/
-
-# MLflow
 mlruns/
-mlflow.db
-mlflow_tracking/
-
-# Models
-models/
-artifacts/
-
-# Data
-data/
-
-# OS
+models/*.pkl
+reports/
 .DS_Store
-
-echo "venv/" >> .gitignore
-echo "reports/" >> .gitignore
+*.log
+.coverage
+coverage.xml
+venv/
+.venv/

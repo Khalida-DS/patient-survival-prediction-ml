@@ -1,178 +1,124 @@
-# train_model.py
-# --------------------------------------------------
-# Patient Survival Prediction - Training Script
-# Refactored from Jupyter Notebook with MLflow integration
-# --------------------------------------------------
+"""
+train_model.py
 
-import os
-import pandas as pd
-import joblib
-import mlflow
-import mlflow.sklearn
+Main entrypoint for the full training pipeline. Run this once to:
+  1. Load and clean data
+  2. Benchmark 5 models with stratified CV
+  3. Tune best model with RandomizedSearchCV
+  4. Calibrate probabilities (Platt scaling)
+  5. Evaluate: AUC, F1, Sensitivity, Specificity, Brier Score
+  6. Generate calibration curve and SHAP plots
+  7. Log everything to MLflow
+
+Usage:
+    python train_model.py
+"""
+
+import logging
+import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.metrics import (
-    accuracy_score,
-    precision_score,
-    recall_score,
-    f1_score,
-    classification_report,
-    confusion_matrix,
-    roc_curve,
-    auc
+
+from src.data.loader import load_config, load_data, split_features_target
+from src.data.preprocessor import build_preprocessor, get_feature_names
+from src.models.benchmark import run_benchmark
+from src.models.train import train_and_log
+from src.evaluation.metrics import compute_metrics, print_evaluation_report
+from src.evaluation.calibration import plot_calibration_curve
+from src.explainability.shap_explainer import (
+    compute_shap_values,
+    plot_global_summary,
 )
 
-# --------------------------------------------------
-# 1. Paths
-# --------------------------------------------------
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_PATH = os.path.join(BASE_DIR, "data", "Survival.csv")
-MODEL_DIR = os.path.join(BASE_DIR, "models")
-
-os.makedirs(MODEL_DIR, exist_ok=True)
-
-# --------------------------------------------------
-# 2. Load Data
-# --------------------------------------------------
-
-df = pd.read_csv(DATA_PATH)
-print("✅ Data loaded successfully")
-print(f"Dataset shape: {df.shape}")
-
-# --------------------------------------------------
-# 3. Column Selection
-# --------------------------------------------------
-
-cols = [
-    'Treated_with_drugs',
-    'Patient_Age',
-    'Patient_Body_Mass_Index',
-    'Patient_Smoker',
-    'Patient_Rural_Urban',
-    'Patient_mental_condition',
-    'A', 'B', 'C', 'D', 'E', 'F', 'Z',
-    'Number_of_prev_cond',
-    'Survived_1_year'
-]
-
-df = df[cols]
-
-# --------------------------------------------------
-# 4. Data Cleaning
-# --------------------------------------------------
-
-df = df[df.Patient_Smoker != 'Cannot say']
-
-df['Number_of_prev_cond'] = df['Number_of_prev_cond'].fillna(
-    df['Number_of_prev_cond'].median()
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-8s  %(name)s — %(message)s",
 )
+logger = logging.getLogger(__name__)
 
-for column in df.columns:
-    df[column] = df[column].fillna(df[column].mode()[0])
 
-print("✅ Data cleaning completed")
+def main():
+    # ── 1. Load config and data ──────────────────────────────────────
+    config = load_config("config/config.yaml")
+    df = load_data(config["data"]["path"], config)
 
-# --------------------------------------------------
-# 5. One-Hot Encoding
-# --------------------------------------------------
+    # ── 2. Split features and target ────────────────────────────────
+    X, y = split_features_target(df, config["data"]["target_column"])
 
-categorical_cols = [
-    'Treated_with_drugs',
-    'Patient_Smoker',
-    'Patient_Rural_Urban',
-    'Patient_mental_condition'
-]
-
-df_encoded = pd.get_dummies(df, columns=categorical_cols)
-
-# --------------------------------------------------
-# 6. Feature / Target Split
-# --------------------------------------------------
-
-X = df_encoded.drop(columns=['Survived_1_year'])
-y = df_encoded['Survived_1_year']
-
-feature_names = X.columns.tolist()
-print("Total features:", len(feature_names))
-
-# --------------------------------------------------
-# 7. Train-Test Split
-# --------------------------------------------------
-
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=45
-)
-
-# --------------------------------------------------
-# 8. MLflow Experiment
-# --------------------------------------------------
-
-mlflow.set_experiment("patient-survival-prediction")
-
-with mlflow.start_run():
-
-    # 8.1 Model Training
-    model = GradientBoostingClassifier(
-        max_depth=4,
-        n_estimators=150,
-        learning_rate=0.2,
-        random_state=45
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y,
+        test_size=config["data"]["test_size"],
+        random_state=config["data"]["random_state"],
+        stratify=y,
     )
-    model.fit(X_train, y_train)
-    print("✅ Model training completed")
+    logger.info(
+        f"Train: {len(X_train)} | Test: {len(X_test)} | "
+        f"Positive rate (train): {y_train.mean():.2%}"
+    )
 
-    # 8.2 Predictions
-    y_pred = model.predict(X_test)
-    y_prob = model.predict_proba(X_test)[:, 1]
+    # ── 3. Build preprocessor ────────────────────────────────────────
+    preprocessor = build_preprocessor()
+    feature_names = get_feature_names()
+    logger.info(f"Features ({len(feature_names)}): {feature_names}")
 
-    # 8.3 Metrics
-    accuracy = accuracy_score(y_test, y_pred)
-    precision = precision_score(y_test, y_pred)
-    recall = recall_score(y_test, y_pred)
-    f1 = f1_score(y_test, y_pred)
-    fpr, tpr, _ = roc_curve(y_test, y_prob)
-    roc_auc = auc(fpr, tpr)
+    # ── 4. Multi-model benchmark ─────────────────────────────────────
+    logger.info("\nRunning 5-model CV benchmark...")
+    benchmark_results, best_model_name = run_benchmark(
+        X_train, y_train, preprocessor, config
+    )
+    print(
+        f"\nBenchmark Results:\n"
+        f"{benchmark_results[['model','mean_auc','std_auc']].to_string(index=False)}\n"
+    )
 
-    print("\nModel Performance")
-    print("Accuracy:", round(accuracy, 4))
-    print("Precision:", round(precision, 4))
-    print("Recall:", round(recall, 4))
-    print("F1-score:", round(f1, 4))
-    print("ROC AUC:", round(roc_auc, 4))
-    print("\nClassification Report:\n", classification_report(y_test, y_pred))
-    print("\nConfusion Matrix:\n", confusion_matrix(y_test, y_pred))
+    # ── 5. Train, calibrate, and log (single call) ───────────────────
+    final_model = train_and_log(
+        X_train, y_train, X_test, y_test,
+        preprocessor, feature_names,
+        benchmark_results, config,
+    )
 
-    # 8.4 Log Parameters
-    mlflow.log_params({
-        "model": "GradientBoosting",
-        "max_depth": model.max_depth,
-        "n_estimators": model.n_estimators,
-        "learning_rate": model.learning_rate
-    })
+    # ── 6. Evaluation report ─────────────────────────────────────────
+    y_prob = final_model.predict_proba(X_test)[:, 1]
+    y_pred = (y_prob >= 0.5).astype(int)
+    print_evaluation_report(y_test.values, y_pred, y_prob)
 
-    # 8.5 Log Metrics
-    mlflow.log_metrics({
-        "accuracy": accuracy,
-        "precision": precision,
-        "recall": recall,
-        "f1_score": f1,
-        "roc_auc": roc_auc
-    })
+    # ── 7. Calibration curve ─────────────────────────────────────────
+    plot_calibration_curve(
+        y_test.values, y_prob,
+        output_dir=config["evaluation"]["output_dir"],
+        n_bins=config["evaluation"]["calibration_bins"],
+        log_to_mlflow=False,
+    )
+    logger.info("Calibration curve saved.")
 
-    # 8.6 Log Model
-    mlflow.sklearn.log_model(model, "model")
+    # ── 8. SHAP global explainability ────────────────────────────────
+    logger.info("Computing SHAP values...")
+    try:
+        inner_model = final_model.calibrated_classifiers_[0].estimator
+        inner_preprocessor = inner_model.named_steps["preprocessor"]
+        inner_clf = inner_model.named_steps["classifier"]
 
-    # 8.7 Save and Log Feature Names
-    feature_path = os.path.join(MODEL_DIR, "feature_names.pkl")
-    joblib.dump(feature_names, feature_path)
-    mlflow.log_artifact(feature_path)
+        X_test_shap = inner_preprocessor.transform(X_test)
+        shap_values = compute_shap_values(
+            inner_clf,
+            X_test_shap,
+            background_samples=config["explainability"]["background_samples"],
+        )
+        plot_global_summary(
+            shap_values,
+            feature_names=feature_names,
+            output_dir=config["explainability"]["output_dir"],
+            max_display=config["explainability"]["max_display"],
+            log_to_mlflow=False,
+        )
+        logger.info("SHAP summary plot saved.")
+    except Exception as e:
+        logger.warning(f"SHAP computation skipped: {e}")
 
-    print("✅ MLflow logging completed")
+    logger.info("\n✅ Training pipeline complete.")
+    logger.info("   MLflow UI:  mlflow ui  →  http://localhost:5000")
+    logger.info("   App:        streamlit run app/app.py")
 
-# --------------------------------------------------
-# 9. Save Local Artifacts
-# --------------------------------------------------
 
-joblib.dump(model, os.path.join(MODEL_DIR, "gradient_boosting.pkl"))
-print("\n💾 Model and feature schema saved locally successfully")
+if __name__ == "__main__":
+    main()

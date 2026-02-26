@@ -1,0 +1,135 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Lint with flake8
+        run: |
+          flake8 src/ train_model.py \
+            --max-line-length=100 \
+            --ignore=E501,W503 \
+            --exclude=__pycache__
+
+      - name: Run unit tests with coverage
+        run: pytest tests/ -v --tb=short --cov=src --cov-report=xml
+
+  model-smoke-test:
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Model smoke test
+        run: |
+          python - <<'EOF'
+          import numpy as np
+          import pandas as pd
+          from sklearn.ensemble import GradientBoostingClassifier
+          from sklearn.pipeline import Pipeline
+          from sklearn.compose import ColumnTransformer
+          from sklearn.preprocessing import StandardScaler, OrdinalEncoder
+          from sklearn.impute import SimpleImputer
+          from sklearn.model_selection import train_test_split
+          from sklearn.metrics import roc_auc_score
+
+          np.random.seed(42)
+          n = 300
+          X = pd.DataFrame({
+              "Patient_Age": np.random.uniform(5, 90, n),
+              "Patient_Body_Mass_Index": np.random.uniform(5, 30, n),
+              "Number_of_prev_cond": np.random.uniform(1, 5, n),
+              "A": np.random.randint(0, 2, n).astype(float),
+              "B": np.random.randint(0, 2, n).astype(float),
+              "C": np.random.randint(0, 2, n).astype(float),
+              "D": np.random.randint(0, 2, n).astype(float),
+              "E": np.random.randint(0, 2, n).astype(float),
+              "F": np.random.randint(0, 2, n).astype(float),
+              "Z": np.random.randint(0, 2, n).astype(float),
+              "Treated_with_drugs": np.random.choice(
+                  ["DX1", "DX2", "DX6"], n
+              ),
+              "Patient_Smoker": np.random.choice(["YES", "NO"], n),
+              "Patient_Rural_Urban": np.random.choice(
+                  ["URBAN", "RURAL"], n
+              ),
+          })
+          y = (X["Patient_Age"] > 60).astype(int)
+
+          num_feats = [
+              "Patient_Age", "Patient_Body_Mass_Index",
+              "Number_of_prev_cond",
+              "A", "B", "C", "D", "E", "F", "Z",
+          ]
+          cat_feats = [
+              "Treated_with_drugs", "Patient_Smoker",
+              "Patient_Rural_Urban",
+          ]
+
+          num_pipe = Pipeline([
+              ("imp", SimpleImputer()),
+              ("sc", StandardScaler()),
+          ])
+          cat_pipe = Pipeline([
+              ("imp", SimpleImputer(strategy="most_frequent")),
+              ("enc", OrdinalEncoder(
+                  handle_unknown="use_encoded_value",
+                  unknown_value=-1,
+              )),
+          ])
+          pre = ColumnTransformer([
+              ("num", num_pipe, num_feats),
+              ("cat", cat_pipe, cat_feats),
+          ])
+          pipe = Pipeline([
+              ("pre", pre),
+              ("clf", GradientBoostingClassifier(
+                  n_estimators=50, random_state=42
+              )),
+          ])
+
+          X_train, X_test, y_train, y_test = train_test_split(
+              X, y, test_size=0.2, random_state=42, stratify=y
+          )
+          pipe.fit(X_train, y_train)
+          auc = roc_auc_score(
+              y_test,
+              pipe.predict_proba(X_test)[:, 1],
+          )
+          assert auc > 0.5, f"Smoke test failed: AUC={auc:.3f}"
+          assert pipe.predict_proba(X_test).shape == (
+              len(X_test), 2
+          )
+          print(f"✅ Smoke test passed. AUC={auc:.3f}")
+          EOF
