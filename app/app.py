@@ -5,20 +5,21 @@ Clinical Decision Support Interface.
 Built on real Survival dataset — drug values match actual data.
 """
 
+import logging
 import streamlit as st
 import pandas as pd
-import numpy as np
-import pickle
-import matplotlib.pyplot as plt
-import shap
+import plotly.graph_objects as go
 from pathlib import Path
 import sys
 
 sys.path.append(str(Path(__file__).parent.parent))
 
-from src.data.loader import load_config
+from src.data.loader import load_config, load_data, split_features_target
 from src.models.predict import load_model_artifacts, predict, validate_input
 from src.data.preprocessor import CATEGORICAL_FEATURES, NUMERIC_FEATURES
+from src.explainability.shap_explainer import explain_patient
+
+logger = logging.getLogger(__name__)
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -34,8 +35,25 @@ def load_resources():
     model, feature_names = load_model_artifacts(config)
     return config, model, feature_names
 
+
+@st.cache_data
+def load_background_sample(_config):
+    """
+    A small, fixed sample of real patients used as the reference
+    population for SHAP explanations — this is what "the average
+    patient" means in the "Why this prediction?" section below.
+    """
+    df = load_data(_config["data"]["path"], _config)
+    X, _ = split_features_target(df, _config["data"]["target_column"])
+    n = _config["explainability"]["background_samples"]
+    return X.sample(
+        n=min(n, len(X)), random_state=_config["data"]["random_state"]
+    )
+
+
 try:
     config, model, feature_names = load_resources()
+    background_sample = load_background_sample(config)
 except FileNotFoundError:
     st.error("⚠️ Model not found. Please run `python train_model.py` first.")
     st.stop()
@@ -120,7 +138,7 @@ if tab_choice == "🔬 Predict Survival":
     predict_btn = st.button(
         "🔍 Generate Prediction",
         type="primary",
-        use_container_width=True,
+        width="stretch",
     )
 
     if predict_btn:
@@ -184,45 +202,73 @@ if tab_choice == "🔬 Predict Survival":
 
         # ── SHAP explanation ────────────────────────────────────────
         st.markdown("#### Why this prediction?")
-        st.caption(
-            "Features pushing right increase survival probability. "
-            "Features pushing left decrease it."
-        )
 
         try:
-            inner_model = (
-                model.calibrated_classifiers_[0].estimator
+            explanation = explain_patient(
+                model=model,
+                input_df=input_data,
+                feature_names=feature_names,
+                background_df=background_sample,
+                calibrated_probability=survival_prob,
             )
-            inner_preprocessor = (
-                inner_model.named_steps["preprocessor"]
-            )
-            inner_clf = inner_model.named_steps["classifier"]
+            baseline_pct = explanation["baseline_probability"] * 100
+            final_pct = explanation["calibrated_probability"] * 100
 
-            input_transformed = inner_preprocessor.transform(
-                input_data
+            st.markdown(
+                f"Averaged across all **{explanation['num_folds_averaged']}** "
+                f"cross-validation folds of the calibrated model — starting "
+                f"from the average patient survival of **{baseline_pct:.0f}%**, "
+                f"the factors below moved this patient to **{final_pct:.0f}%**."
             )
-            explainer = shap.TreeExplainer(inner_clf)
-            shap_vals = explainer(input_transformed)
-
-            fig, ax = plt.subplots(figsize=(10, 5))
-            shap.waterfall_plot(
-                shap.Explanation(
-                    values=shap_vals.values[0],
-                    base_values=shap_vals.base_values[0]
-                    if hasattr(shap_vals.base_values, "__len__")
-                    else shap_vals.base_values,
-                    data=input_transformed[0],
-                    feature_names=feature_names,
-                ),
-                show=False,
-                max_display=13,
+            st.caption(
+                "Green bars push survival probability up, red bars push it "
+                "down. Bars are sorted by size — the biggest movers are at "
+                "the top."
             )
-            plt.tight_layout()
-            st.pyplot(fig)
-            plt.close()
 
-        except Exception as e:
-            st.info(f"SHAP explanation not available: {e}")
+            top_features = explanation["features"][:8]
+            top_features_display = list(reversed(top_features))  # largest on top
+            labels = [f["label"] for f in top_features_display]
+            values_pp = [f["value"] * 100 for f in top_features_display]
+            colors = ["#dc2626" if v < 0 else "#16a34a" for v in values_pp]
+
+            fig = go.Figure(
+                go.Bar(
+                    x=values_pp,
+                    y=labels,
+                    orientation="h",
+                    marker_color=colors,
+                    text=[f"{v:+.1f} pts" for v in values_pp],
+                    textposition="outside",
+                )
+            )
+            fig.update_layout(
+                xaxis_title="Impact on survival probability (percentage points)",
+                yaxis_title=None,
+                height=360,
+                margin=dict(l=10, r=10, t=10, b=40),
+            )
+            st.plotly_chart(fig, width="stretch")
+
+            top3 = explanation["features"][:3]
+            summary_lines = []
+            for i, f in enumerate(top3):
+                direction = "lowered" if f["value"] < 0 else "raised"
+                superlative = " the most" if i == 0 else ""
+                summary_lines.append(
+                    f"- **{f['label']}** {direction} this patient's "
+                    f"predicted survival{superlative} "
+                    f"({f['value'] * 100:+.1f} points)."
+                )
+            st.markdown("\n".join(summary_lines))
+
+        except Exception:
+            logger.exception("SHAP explanation failed for a patient prediction")
+            st.error(
+                "⚠️ Could not generate the SHAP explanation for this "
+                "patient. This has been logged — check the app logs for "
+                "the full traceback."
+            )
 
         st.divider()
         st.caption(
@@ -254,7 +300,7 @@ elif tab_choice == "📊 Model Performance":
     }
     st.dataframe(
         pd.DataFrame(benchmark_data),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -276,7 +322,7 @@ elif tab_choice == "📊 Model Performance":
     }
     st.dataframe(
         pd.DataFrame(metrics_data),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -292,6 +338,11 @@ elif tab_choice == "📊 Model Performance":
     c1, c2 = st.columns(2)
     with c1:
         st.subheader("Calibration Curve")
+        st.caption(
+            "The dashed line is perfect calibration. The closer the blue "
+            "line hugs it, the more a '70% survival' prediction really "
+            "does mean about 70 in 100 similar patients survived."
+        )
         cal_path = Path("reports/evaluation/calibration_curve.png")
         if cal_path.exists():
             st.image(str(cal_path))
@@ -299,6 +350,12 @@ elif tab_choice == "📊 Model Performance":
             st.info("Run `python train_model.py` to generate.")
     with c2:
         st.subheader("SHAP Global Feature Importance")
+        st.caption(
+            "Each dot is one patient. Position left/right shows whether "
+            "that feature pushed survival down or up for them; red dots "
+            "are high feature values, blue dots are low. Features are "
+            "ranked top-to-bottom by overall impact across all patients."
+        )
         shap_path = Path("reports/shap/shap_summary.png")
         if shap_path.exists():
             st.image(str(shap_path))
@@ -327,7 +384,8 @@ elif tab_choice == "📖 About":
     - **Multi-model benchmark** — 5-model stratified CV comparison
     - **Hyperparameter tuning** — `RandomizedSearchCV` with AUC
     - **Probability calibration** — Platt scaling
-    - **Explainability** — SHAP global + per-patient waterfall
+    - **Explainability** — SHAP global summary + per-patient
+      explanation, averaged across every calibrated fold
     - **Experiment tracking** — MLflow logging and model registry
     - **Drift monitoring** — Evidently distribution shift detection
     - **CI/CD** — lint, unit tests, smoke test on every commit
