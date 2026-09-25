@@ -1,0 +1,23 @@
+# Everything needed to train the model, run the full test suite, lint,
+# and use the app locally in development. NOT installed on Streamlit
+# Community Cloud — that only ever installs requirements.txt.
+-r requirements.txt
+
+# Experiment tracking
+mlflow>=2.9.0
+
+# Data drift monitoring
+evidently>=0.4.0
+
+# Extra benchmark models used only during training/benchmarking
+xgboost>=2.0.0
+lightgbm>=4.0.0
+
+# Testing & code quality
+pytest>=7.4.0
+pytest-cov>=4.1.0
+flake8>=6.1.0
+
+# Training-time visualization (calibration curve, SHAP summary plots)
+matplotlib>=3.7.0
+seaborn>=0.12.0

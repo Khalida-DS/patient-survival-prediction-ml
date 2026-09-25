@@ -12,7 +12,6 @@ plot proves it worked.
 
 import numpy as np
 import matplotlib.pyplot as plt
-import mlflow
 from pathlib import Path
 from sklearn.calibration import calibration_curve
 
@@ -60,6 +59,7 @@ def plot_calibration_curve(
     plt.close()
 
     if log_to_mlflow:
+        import mlflow
         mlflow.log_artifact(output_path)
 
     return output_path

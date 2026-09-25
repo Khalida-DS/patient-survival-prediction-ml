@@ -3,8 +3,21 @@ __pycache__/
 *.egg-info/
 .env
 mlruns/
+
+# Ignore regenerated model artifacts by default, but the app needs a
+# known-good model committed for the Streamlit Cloud demo to work —
+# keep these two tracked.
 models/*.pkl
-reports/
+!models/calibrated_gb_model.pkl
+!models/feature_names.pkl
+
+# Same story for the report images the Model Performance tab displays.
+reports/*
+!reports/evaluation/
+!reports/evaluation/calibration_curve.png
+!reports/shap/
+!reports/shap/shap_summary.png
+
 .DS_Store
 *.log
 .coverage
