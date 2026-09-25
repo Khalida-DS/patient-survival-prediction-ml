@@ -1,35 +1,17 @@
-# Core ML
-scikit-learn>=1.3.0
-xgboost>=2.0.0
-lightgbm>=4.0.0
-numpy>=1.24.0
-pandas>=2.0.0
-scipy>=1.11.0
-
-# Explainability
-shap>=0.44.0
-
-# Experiment tracking
-mlflow>=2.9.0
-
-# Data drift monitoring
-evidently>=0.4.0
-
-# App
-streamlit>=1.28.0
-plotly>=5.18.0
-
-# Config
-PyYAML>=6.0
-
-# Testing & code quality
-pytest>=7.4.0
-pytest-cov>=4.1.0
-flake8>=6.1.0
-
-# Visualization
-matplotlib>=3.7.0
-seaborn>=0.12.0
-
-# Utilities
-joblib>=1.3.0
+# Runtime dependencies for the Streamlit demo ONLY (app/app.py).
+# Pinned to exact versions verified to load models/calibrated_gb_model.pkl
+# (saved with scikit-learn 1.8.0) without errors. Do not loosen these
+# pins without re-testing against the committed model file — an
+# unpinned scikit-learn was the root cause of the original deploy
+# failure (see docs/GUIDE.md, "What was broken and why").
+#
+# Training, experiment tracking, drift monitoring, and testing tools
+# live in requirements-dev.txt, not here, to keep the Streamlit Cloud
+# install small and fast.
+streamlit==1.64.0
+pandas==3.0.6
+numpy==2.3.5
+scikit-learn==1.8.0
+shap==0.52.0
+plotly==7.1.0
+PyYAML==6.0.3

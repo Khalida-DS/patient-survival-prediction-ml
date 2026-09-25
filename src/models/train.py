@@ -9,9 +9,6 @@ Full training pipeline:
 
 import logging
 import pickle
-import mlflow
-import mlflow.sklearn
-import numpy as np
 import pandas as pd
 from pathlib import Path
 from sklearn.calibration import CalibratedClassifierCV
@@ -97,9 +94,9 @@ def calibrate_model(
     Ensures predicted probabilities are reliable.
     """
     calibrated = CalibratedClassifierCV(
-    pipeline,
-    method=config["model"]["calibration_method"],
-)
+        pipeline,
+        method=config["model"]["calibration_method"],
+    )
     calibrated.fit(X_train, y_train)
     logger.info("Probability calibration (Platt scaling) applied.")
     return calibrated
@@ -135,6 +132,17 @@ def train_and_log(
     Single entry point: tunes, calibrates, evaluates,
     and logs everything to MLflow. Saves artifacts to disk.
     """
+    import os
+    # Recent MLflow versions treat the local file-based tracking store
+    # (what config.yaml's mlflow.tracking_uri: mlruns/ uses) as
+    # deprecated by default and refuse to write to it. Opt back in —
+    # this project intentionally uses a local file store, not a
+    # database backend.
+    os.environ.setdefault("MLFLOW_ALLOW_FILE_STORE", "true")
+
+    import mlflow
+    import mlflow.sklearn
+
     mlflow.set_tracking_uri(config["mlflow"]["tracking_uri"])
     mlflow.set_experiment(config["mlflow"]["experiment_name"])
 

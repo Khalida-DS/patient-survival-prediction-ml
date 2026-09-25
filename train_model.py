@@ -15,14 +15,13 @@ Usage:
 """
 
 import logging
-import numpy as np
 from sklearn.model_selection import train_test_split
 
 from src.data.loader import load_config, load_data, split_features_target
 from src.data.preprocessor import build_preprocessor, get_feature_names
 from src.models.benchmark import run_benchmark
 from src.models.train import train_and_log
-from src.evaluation.metrics import compute_metrics, print_evaluation_report
+from src.evaluation.metrics import print_evaluation_report
 from src.evaluation.calibration import plot_calibration_curve
 from src.explainability.shap_explainer import (
     compute_shap_values,
@@ -67,7 +66,7 @@ def main():
     )
     print(
         f"\nBenchmark Results:\n"
-        f"{benchmark_results[['model','mean_auc','std_auc']].to_string(index=False)}\n"
+        f"{benchmark_results[['model', 'mean_auc', 'std_auc']].to_string(index=False)}\n"
     )
 
     # ── 5. Train, calibrate, and log (single call) ───────────────────

@@ -7,7 +7,6 @@ Reports mean AUC ± std for each candidate.
 
 import logging
 import pandas as pd
-import numpy as np
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.linear_model import LogisticRegression
